@@ -64,7 +64,7 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
 
         # Train loop
         for batch in train_loader:
-            images = batch['image'].float().to(device, non_bloking=True)
+            images = batch['image'].float().to(device, non_blocking=True)
             labels = batch['label'].long().to(device, non_blocking=True)
 
             optimizer.zero_grad(set_to_none=True)  # set None for params that did not receive a gradient
