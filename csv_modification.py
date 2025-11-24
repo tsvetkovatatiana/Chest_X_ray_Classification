@@ -3,8 +3,6 @@
 import os
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 #%%
 metadata = pd.read_csv("data/Chest_xray_Corona_Metadata.csv")
@@ -33,7 +31,13 @@ cleaned_csv.to_csv("data/CSVs/cleaned_full_metadata.csv", index=False)
 print("Cleaned metadata saved to data/CSVs/cleaned_full_metadata.csv")
 
 #%%
-train_df = cleaned_csv[cleaned_csv["Dataset_type"].str.upper() == "TRAIN"].copy()
+train_df = (
+    cleaned_csv[cleaned_csv["Dataset_type"].str.upper() == "TRAIN"]
+    .copy()
+)
+
+train_df = train_df.drop_duplicates(subset="Name").reset_index(drop=True)
+
 # 5-Fold CV
 skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
@@ -46,8 +50,6 @@ for fold, (train_index, val_index) in enumerate(skf.split(train_df, train_df["La
     val_fold.to_csv(f"data/CSVs/fold_{fold}_val.csv", index=False)
 
 print("Created 5-fold CSVs in data/CSVs/")
-
-
 #%%
 # Now create a cleaned csv for the test data
 test_df = cleaned_csv[cleaned_csv["Dataset_type"].str.upper() == "TEST"].copy()
