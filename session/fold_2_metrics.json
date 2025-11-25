@@ -1,0 +1,5 @@
+{
+    "fold": 2,
+    "best_epoch": 4,
+    "best_val_metric": 0.9992885100718558
+}
