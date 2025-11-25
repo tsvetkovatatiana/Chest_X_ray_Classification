@@ -1,14 +1,16 @@
 from torch.utils.data import Dataset
-import cv2
+import torch
+from PIL import Image
 import numpy as np
+import cv2
 from transforms import train_transform, val_transform
 
 def read_x_ray(path):
+    # Read grayscale image
     x_ray = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    x_ray = x_ray.astype(np.float32) / 255
+    x_ray = x_ray.astype(np.uint8)  # PIL expects uint8 for images
 
-    x_ray_3ch = np.stack([x_ray, x_ray, x_ray], axis=-1)  # HWC
-
+    x_ray_3ch = cv2.merge([x_ray, x_ray, x_ray])  # HWC
     return x_ray_3ch
 
 
@@ -30,21 +32,30 @@ class ChestXrayDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-
     def __getitem__(self, index):
         path = self.data["Path"].iloc[index]
         label = self.data["Label"].iloc[index]
 
-        # Load from cache or disk
+        label_map = {
+            "normal": 0,
+            "pneumonia": 1
+        }
+        mapped_label = label_map[label]
+
+        # Load image
         if self.cache and path in self.cached_images:
             image = self.cached_images[path]
         else:
             image = read_x_ray(path)
 
-        image = self.transform(image)
+        # Convert NumPy array to PIL Image
+        image = Image.fromarray(image)
 
-        results = {
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+
+        return {
             "image": image,
-            "label": label
+            "label": torch.tensor(mapped_label, dtype=torch.float32)
         }
-        return results
