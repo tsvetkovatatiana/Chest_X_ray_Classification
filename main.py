@@ -26,6 +26,7 @@ def main():
         train_dataset = ChestXrayDataset(train_set, cache=False)
         val_dataset = ChestXrayDataset(val_set, cache=False)
 
+
         num_workers = 4
         train_loader = DataLoader(
             train_dataset,

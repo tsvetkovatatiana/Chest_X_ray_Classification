@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import torch
 import json
 import os
@@ -30,7 +30,7 @@ def calculate_metrics(y_true, y_pred, y_prob):
     y_pred = np.array(y_pred)
     y_prob = np.array(y_prob)
 
-    metrics = {'"pr_auc"': average_precision_score(y_true, y_prob),
+    metrics = {"pr_auc": average_precision_score(y_true, y_prob),
                'mcc': matthews_corrcoef(y_true, y_pred)}
 
     return metrics
@@ -111,6 +111,52 @@ def plot_loss_curve(train_losses, val_losses, save_dir, fold):
     plt.close()
 
 
+def inspect_dataset(dataset, num_samples=5, show_images=True):
+    """
+    Inspect dataset for label sanity and image statistics.
 
+    Args:
+        dataset: your PyTorch Dataset
+        num_samples: how many samples to print and plot
+        show_images: whether to plot sample images
+    """
+    all_labels = []
+    print("Inspecting dataset...\n")
 
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        image = sample['image']
+        label = sample['label']
 
+        # Convert to tensor if needed
+        if not torch.is_tensor(label):
+            label = torch.tensor(label)
+
+        all_labels.append(label)
+
+        if i < num_samples and show_images:
+            if torch.is_tensor(image):
+                img_np = image.detach().cpu().numpy()
+                if img_np.shape[0] in [1, 3]:  # CxHxW
+                    img_np = np.transpose(img_np, (1, 2, 0))
+                plt.imshow(img_np.squeeze(), cmap='gray')
+                plt.title(f"Label: {label}")
+                plt.show()
+
+    all_labels = torch.stack([l if torch.is_tensor(l) else torch.tensor(l) for l in all_labels])
+    print("Label dtype:", all_labels.dtype)
+    print("Label min:", all_labels.min().item())
+    print("Label max:", all_labels.max().item())
+    print("Unique labels:", torch.unique(all_labels))
+    print("Label counts:")
+    for val in torch.unique(all_labels):
+        print(f"  {val.item()}: {(all_labels == val).sum().item()}")
+
+    print("\nImage statistics:")
+    # Compute mean/std over dataset
+    all_images = [dataset[i]['image'] for i in range(len(dataset))]
+    imgs_tensor = torch.stack([i if torch.is_tensor(i) else torch.tensor(i) for i in all_images])
+    print("Images min:", imgs_tensor.min().item())
+    print("Images max:", imgs_tensor.max().item())
+    print("Images mean:", imgs_tensor.mean().item())
+    print("Images std:", imgs_tensor.std().item())
