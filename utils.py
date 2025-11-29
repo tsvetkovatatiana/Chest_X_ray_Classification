@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import torch
 import json
 import os
-from sklearn.metrics import average_precision_score, matthews_corrcoef
+from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 
 
 def check_device():
@@ -19,19 +19,18 @@ def check_device():
     return device
 
 
-def calculate_metrics(y_true, y_pred, y_prob):
+def calculate_metrics(y_true, y_pred):
     """
     Args:
         y_true: True labels (list or numpy array)
         y_pred: Predicted labels (list or numpy array)
-        y_prob: Prediction probabilities (numpy array of shape [n_samples, n_classes])
+
     """
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
-    y_prob = np.array(y_prob)
 
-    metrics = {"pr_auc": average_precision_score(y_true, y_prob),
-               'mcc': matthews_corrcoef(y_true, y_pred)}
+    metrics = {"balanced_acc": balanced_accuracy_score(y_true, y_pred),
+               'roc_auc': roc_auc_score(y_true, y_pred, average='micro')}
 
     return metrics
 
