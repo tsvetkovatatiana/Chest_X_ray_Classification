@@ -73,12 +73,12 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
         print(f"Epoch {epoch + 1}/{args.epochs} | Train loss: {avg_train_loss:.4f} |"
               f" Time: {epoch_time:.2f}s")
 
-        metrics, y_true, y_pred, y_prob, avg_val_loss = validate_model(model, val_loader, criterion, device)
+        metrics, y_true, y_pred, avg_val_loss = validate_model(model, val_loader, criterion, device)
         val_losses.append(avg_val_loss)
 
         best_val_metric, best_model_path = save_checkpoint(
             cur_fold, epoch, model,
-            metrics['pr_auc'], best_val_metric, best_model_path,
+            metrics['balanced_acc'], best_val_metric, best_model_path,
             comparator='gt', save_dir=args.output_dir
         )
 
@@ -102,7 +102,7 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
 def validate_model(model, val_loader, criterion, device):
     model.eval()
     val_loss = 0.0
-    y_true, y_pred, y_prob = [], [], []
+    y_true, y_pred = [], []
 
     use_amp = device.type == "cuda"
     amp_context = (lambda: torch.amp.autocast("cuda")) if use_amp else nullcontext
@@ -121,24 +121,22 @@ def validate_model(model, val_loader, criterion, device):
 
             y_true.extend(labels.cpu().numpy().tolist())
             y_pred.extend(preds.cpu().numpy().tolist())
-            y_prob.extend(probs.detach().cpu().numpy().tolist())
 
             del images, labels, outputs, loss
 
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
-    y_prob = np.array(y_prob)
     avg_val_loss = val_loss / len(val_loader)
 
     if len(y_true) > 0:
-        metrics = calculate_metrics(y_true, y_pred, y_prob)
+        metrics = calculate_metrics(y_true, y_pred)
         print(
             f"Validation Loss: {avg_val_loss:.4f} | "
-            f"PR AUC: {metrics['pr_auc']:.4f} | "
-            f"MCC: {metrics['mcc']:.4f}"
+            f"Balanced_accuracy: {metrics['balanced_acc']:.4f} | "
+            f"ROC_AUC: {metrics['roc_auc']:.4f}"
         )
         print("=" * 60)
     else:
         metrics = {}
 
-    return metrics, y_true, y_pred, y_prob, avg_val_loss
+    return metrics, y_true, y_pred, avg_val_loss
