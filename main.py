@@ -2,8 +2,9 @@ from args import get_args
 import torch
 import os
 import pandas as pd
+import numpy as np
 from dataset import ChestXrayDataset
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from model import TransferModel
 from trainer import train_model
 import gc
@@ -26,12 +27,28 @@ def main():
         train_dataset = ChestXrayDataset(train_set, cache=False)
         val_dataset = ChestXrayDataset(val_set, cache=False)
 
+        # oversampling
+        label_map = {
+            "normal": 0,
+            "pneumonia": 1
+        }
+        labels = train_dataset.data['Label'].map(label_map)
+
+        class_counts = np.bincount(labels)
+        class_weights = 1.0 / class_counts
+
+        sample_weights = class_weights[labels]
+        sample_weights = torch.from_numpy(sample_weights).double()
+
+        sampler = WeightedRandomSampler(sample_weights, len(sample_weights), replacement=True)
+
 
         num_workers = 4
         train_loader = DataLoader(
             train_dataset,
             batch_size=args.batch_size,
-            shuffle=True,
+            sampler=sampler,
+            shuffle=False,
             num_workers=num_workers,
             pin_memory=(device.type == "cuda"),
             prefetch_factor=1,
