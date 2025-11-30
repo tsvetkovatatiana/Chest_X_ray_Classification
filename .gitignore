@@ -130,4 +130,4 @@ out/
 data
 .DS_Store
 .venv1
-session
+/session/
