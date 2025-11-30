@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import torch
 import json
 import os
+from args import get_args
 from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 
 
@@ -19,13 +20,24 @@ def check_device():
     return device
 
 
-def calculate_metrics(y_true, y_pred):
-    """
-    Args:
-        y_true: True labels (list or numpy array)
-        y_pred: Predicted labels (list or numpy array)
+def scheduler_setup(optimizer):
+    args = get_args()
 
-    """
+    if args.scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=int(args.epochs), eta_min=args.min_lr)
+    elif args.scheduler == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="max", factor=args.gamma, patience=3, min_lr=args.min_lr)
+    elif args.scheduler == "step":
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=args.step_size, gamma=args.gamma)
+    else:
+        scheduler = None
+    return scheduler
+
+
+def calculate_metrics(y_true, y_pred):
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
@@ -108,54 +120,3 @@ def plot_loss_curve(train_losses, val_losses, save_dir, fold):
     plt.savefig(save_path)
     print(f"[INFO] Saved training curve to {save_path}")
     plt.close()
-
-
-def inspect_dataset(dataset, num_samples=5, show_images=True):
-    """
-    Inspect dataset for label sanity and image statistics.
-
-    Args:
-        dataset: your PyTorch Dataset
-        num_samples: how many samples to print and plot
-        show_images: whether to plot sample images
-    """
-    all_labels = []
-    print("Inspecting dataset...\n")
-
-    for i in range(len(dataset)):
-        sample = dataset[i]
-        image = sample['image']
-        label = sample['label']
-
-        # Convert to tensor if needed
-        if not torch.is_tensor(label):
-            label = torch.tensor(label)
-
-        all_labels.append(label)
-
-        if i < num_samples and show_images:
-            if torch.is_tensor(image):
-                img_np = image.detach().cpu().numpy()
-                if img_np.shape[0] in [1, 3]:  # CxHxW
-                    img_np = np.transpose(img_np, (1, 2, 0))
-                plt.imshow(img_np.squeeze(), cmap='gray')
-                plt.title(f"Label: {label}")
-                plt.show()
-
-    all_labels = torch.stack([l if torch.is_tensor(l) else torch.tensor(l) for l in all_labels])
-    print("Label dtype:", all_labels.dtype)
-    print("Label min:", all_labels.min().item())
-    print("Label max:", all_labels.max().item())
-    print("Unique labels:", torch.unique(all_labels))
-    print("Label counts:")
-    for val in torch.unique(all_labels):
-        print(f"  {val.item()}: {(all_labels == val).sum().item()}")
-
-    print("\nImage statistics:")
-    # Compute mean/std over dataset
-    all_images = [dataset[i]['image'] for i in range(len(dataset))]
-    imgs_tensor = torch.stack([i if torch.is_tensor(i) else torch.tensor(i) for i in all_images])
-    print("Images min:", imgs_tensor.min().item())
-    print("Images max:", imgs_tensor.max().item())
-    print("Images mean:", imgs_tensor.mean().item())
-    print("Images std:", imgs_tensor.std().item())
