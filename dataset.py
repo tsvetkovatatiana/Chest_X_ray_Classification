@@ -57,5 +57,5 @@ class ChestXrayDataset(Dataset):
 
         return {
             "image": image,
-            "label": torch.tensor(mapped_label, dtype=torch.float32)
+            "label": torch.tensor(mapped_label, dtype=torch.long)
         }
