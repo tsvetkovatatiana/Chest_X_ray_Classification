@@ -5,13 +5,13 @@ import torch.nn as nn
 import torch.optim as optim
 from contextlib import nullcontext
 import numpy as np
-from utils import calculate_metrics, save_checkpoint, plot_loss_curve
+from utils import scheduler_setup, calculate_metrics, save_checkpoint, plot_loss_curve
 from args import get_args
 
 
 def train_model(model, train_loader, val_loader, cur_fold, device):
     """
-    Train the model with mixed precision and backbone support for binary classification.
+    Train the model with mixed precision(amp) and backbone support for binary classification.
     """
     args = get_args()
 
@@ -22,18 +22,7 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
-    # Scheduler setup
-    if args.scheduler == "cosine":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=int(args.epochs), eta_min=args.min_lr)
-    elif args.scheduler == "plateau":
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="max", factor=args.gamma, patience=3, min_lr=args.min_lr)
-    elif args.scheduler == "step":
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=args.step_size, gamma=args.gamma)
-    else:
-        scheduler = None
+    scheduler = scheduler_setup(optimizer)
 
     best_val_metric = None
     best_model_path = None
