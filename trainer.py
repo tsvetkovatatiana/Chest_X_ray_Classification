@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from contextlib import nullcontext
 import numpy as np
-from utils import scheduler_setup, calculate_metrics, save_checkpoint, plot_loss_curve
+from utils import scheduler_setup, calculate_metrics, save_checkpoint, plot_loss_curve, plot_confusion_matrix
 from args import get_args
 
 
@@ -18,7 +18,7 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
     use_amp = device.type == "cuda"
     amp_context = (lambda: torch.amp.autocast("cuda")) if use_amp else nullcontext
 
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([3.0]).to(device))
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scaler = torch.amp.GradScaler(enabled=use_amp)
 
@@ -35,7 +35,7 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
 
         for batch in train_loader:
             images = batch['image'].float().to(device, non_blocking=True)
-            labels = batch['label'].float().unsqueeze(1).to(device, non_blocking=True)  # shape [B,1]
+            labels = batch['label'].float().unsqueeze(1).to(device, non_blocking=True)
 
             optimizer.zero_grad(set_to_none=True)
 
@@ -73,14 +73,15 @@ def train_model(model, train_loader, val_loader, cur_fold, device):
 
         if scheduler is not None:
             if args.scheduler == "plateau":
-                scheduler.step(metrics['pr_auc'])
+                scheduler.step(metrics['roc_auc'])
             else:
                 scheduler.step()
 
         current_lr = optimizer.param_groups[0]["lr"]
-        print(f"[LR] Current learning rate: {current_lr:.6f}")
+        print(f"Current learning rate: {current_lr:.6f}")
 
-        plot_loss_curve(train_losses, val_losses, save_dir=args.output_dir, fold=cur_fold)
+        plot_loss_curve(train_losses, val_losses, args.output_dir, cur_fold)
+        plot_confusion_matrix(model, val_loader, args.output_dir, device, cur_fold)
 
         gc.collect()
         torch.cuda.empty_cache()
@@ -121,7 +122,9 @@ def validate_model(model, val_loader, criterion, device):
         metrics = calculate_metrics(y_true, y_pred)
         print(
             f"Validation Loss: {avg_val_loss:.4f} | "
-            f"Balanced_accuracy: {metrics['balanced_acc']:.4f} | "
+            f"Balanced_accuracy: {metrics['balanced_acc']:.4f} |"
+            f"F1-macro: {metrics['f1_score']:.4f} | "
+            f"Recall: {metrics['recall_score']:.4f} | "
             f"ROC_AUC: {metrics['roc_auc']:.4f}"
         )
         print("=" * 60)
