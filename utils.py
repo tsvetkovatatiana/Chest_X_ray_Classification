@@ -4,7 +4,9 @@ import torch
 import json
 import os
 from args import get_args
-from sklearn.metrics import balanced_accuracy_score, roc_auc_score
+from sklearn.metrics import balanced_accuracy_score, f1_score, recall_score, roc_auc_score
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 
 def check_device():
@@ -42,7 +44,9 @@ def calculate_metrics(y_true, y_pred):
     y_pred = np.array(y_pred)
 
     metrics = {"balanced_acc": balanced_accuracy_score(y_true, y_pred),
-               'roc_auc': roc_auc_score(y_true, y_pred, average='micro')}
+               'f1_score': f1_score(y_true, y_pred, average='macro'),
+               'recall_score': recall_score(y_true, y_pred),
+               'roc_auc': roc_auc_score(y_true, y_pred)}
 
     return metrics
 
@@ -120,3 +124,40 @@ def plot_loss_curve(train_losses, val_losses, save_dir, fold):
     plt.savefig(save_path)
     print(f"[INFO] Saved training curve to {save_path}")
     plt.close()
+
+
+def plot_confusion_matrix(model, dataloader, out_dir, device, fold=None):
+    model.eval()
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():
+        for batch in dataloader:
+            images = batch["image"].to(device)
+            labels = batch['label'].float().unsqueeze(1).to(device)
+
+            outputs = model(images)
+
+            probs = torch.sigmoid(outputs)
+            preds = (probs > 0.5).long()
+
+            all_preds.extend(preds.cpu().numpy().flatten())
+            all_labels.extend(labels.cpu().numpy().flatten())
+
+    # Build confusion matrix
+    cm = confusion_matrix(all_labels, all_preds)
+    classes = ["normal", "pneumonia"]
+
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=classes, yticklabels=classes)
+
+    plt.title(f"Confusion Matrix - Fold {fold}")
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+
+    save_path = os.path.join(out_dir, f"confusion_matrix_fold_{fold}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"Saved confusion matrix to {save_path}")
