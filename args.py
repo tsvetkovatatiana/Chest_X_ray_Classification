@@ -8,7 +8,7 @@ def get_args():
 
     parser.add_argument("-csv_dir", type=str, default="data/CSVs")
 
-    parser.add_argument("-batch_size", type=int, default=16,
+    parser.add_argument("-batch_size", type=int, default=32,
                         choices=[16, 32, 64])
 
     parser.add_argument("-output_dir", type=str, default="session")
@@ -19,7 +19,7 @@ def get_args():
 
     parser.add_argument('-weight_decay', type=float, default=1e-4)
 
-    parser.add_argument("-scheduler", type=str, default="none",
+    parser.add_argument("-scheduler", type=str, default="plateau",
                         choices=["cosine", "plateau", "step", "none"],
                         help="Learning rate scheduler type")
     parser.add_argument("-min_lr", type=float, default=1e-3,
