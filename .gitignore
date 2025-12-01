@@ -131,3 +131,4 @@ data
 .DS_Store
 .venv1
 session
+evaluation_results
