@@ -161,3 +161,21 @@ def plot_confusion_matrix(model, dataloader, out_dir, device, fold=None):
     plt.close()
 
     print(f"Saved confusion matrix to {save_path}")
+
+
+def plot_confusion_matrix_test(y_true, y_pred, save_path):
+    cm = confusion_matrix(y_true, y_pred)
+    classes = ["normal", "pneumonia"]
+
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=classes, yticklabels=classes)
+
+    plt.title("Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"[INFO] Saved confusion matrix to: {save_path}")
+
