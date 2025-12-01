@@ -8,6 +8,8 @@ def get_args():
 
     parser.add_argument("-csv_dir", type=str, default="data/CSVs")
 
+    parser.add_argument("-best_model_pth", type=str, default="session/fold_1_best.pth")
+
     parser.add_argument("-batch_size", type=int, default=32,
                         choices=[16, 32, 64])
 
