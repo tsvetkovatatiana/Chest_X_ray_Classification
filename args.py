@@ -6,7 +6,7 @@ def get_args():
     parser.add_argument("-backbone", type=str, default="resnet34",
                         choices=["resnet18", "resnet34", "resnet50"])
 
-    parser.add_argument("-csv_dir", type=str, default="data/CSVs")
+    parser.add_argument("-csv_dir", type=str, default="CSVs")
 
     parser.add_argument("-best_model_pth", type=str, default="session/fold_1_best.pth")
 
@@ -17,14 +17,14 @@ def get_args():
 
     parser.add_argument("-lr", type=float, default=1e-3)
 
-    parser.add_argument("-epochs", type=float, default=5)
+    parser.add_argument("-epochs", type=int, default=5)
 
     parser.add_argument('-weight_decay', type=float, default=1e-4)
 
     parser.add_argument("-scheduler", type=str, default="plateau",
                         choices=["cosine", "plateau", "step", "none"],
                         help="Learning rate scheduler type")
-    parser.add_argument("-min_lr", type=float, default=1e-3,
+    parser.add_argument("-min_lr", type=float, default=1e-6,
                         help="Minimum LR for cosine scheduler")
     parser.add_argument("-step_size", type=int, default=10,
                         help="Step size for StepLR (if used)")

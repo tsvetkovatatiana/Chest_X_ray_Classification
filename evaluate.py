@@ -12,8 +12,7 @@ from args import get_args
 
 def evaluate_model(model, dataloader, device):
     model.eval()
-    all_preds = []
-    all_labels = []
+    all_preds, all_labels, all_probs = [], [], []
 
     with torch.no_grad():
         for batch in dataloader:
@@ -21,19 +20,20 @@ def evaluate_model(model, dataloader, device):
             labels = batch['label'].to(device)
 
             outputs = model(images)
-            probs = torch.sigmoid(outputs)
+            probs = torch.sigmoid(outputs.float())
             preds = (probs > 0.5).long()
 
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+            all_preds.extend(preds.cpu().numpy().ravel())
+            all_probs.extend(probs.cpu().numpy().ravel())
+            all_labels.extend(labels.cpu().numpy().ravel())
 
     all_labels = np.array(all_labels)
     all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
 
-    metrics = calculate_metrics(all_labels, all_preds)
+    metrics = calculate_metrics(all_labels, all_preds, all_probs)
 
     return metrics, all_labels, all_preds
-
 
 def main():
     args = get_args()

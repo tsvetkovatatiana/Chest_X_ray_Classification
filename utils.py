@@ -39,14 +39,14 @@ def scheduler_setup(optimizer):
     return scheduler
 
 
-def calculate_metrics(y_true, y_pred):
+def calculate_metrics(y_true, y_pred, y_probs):
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
     metrics = {"balanced_acc": balanced_accuracy_score(y_true, y_pred),
                'f1_score': f1_score(y_true, y_pred, average='macro'),
                'recall_score': recall_score(y_true, y_pred),
-               'roc_auc': roc_auc_score(y_true, y_pred)}
+               'roc_auc': roc_auc_score(y_probs)}
 
     return metrics
 
