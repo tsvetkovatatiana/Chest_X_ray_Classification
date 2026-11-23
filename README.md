@@ -4,24 +4,63 @@ Binary classification of chest X-ray images as **Normal** or **Pneumonia** using
 
 ## Results
 
-Best model: **ResNet34**, fold 1, 5 epochs, evaluated on the held-out test set (never used during training or model selection).
+Best model: **ResNet34**, fold 4, 5 epochs, evaluated on the held-out test set (never used during training or model selection).
 
-| Metric | Validation (fold 1, best epoch) | Test |
+| Metric | Validation (fold 4, best epoch) | Test |
 |---|---|---|
-| Balanced accuracy | 0.915 | **0.902** |
-| F1-score (macro) | 0.896 | **0.879** |
-| Recall (pneumonia) | 0.997 | **0.997** |
-| ROC-AUC | 0.975 | **0.975** |
+| Balanced accuracy | 0.917 | **0.909** |
+| F1-score (macro) | 0.899 | **0.888** |
+| Recall (pneumonia) | 0.995 | **0.996** |
+| ROC-AUC | 0.971 | **0.974** |
+
+<p align="center">
+  <img width="420" alt="Confusion matrix on the test set" src="https://github.com/user-attachments/assets/3784376d-a4b8-4ea1-b173-fba849d7a115" />
+  <br>
+  <em>Confusion matrix on the held-out test set</em>
+</p>
 
 - Test performance is close to validation performance, so the model generalizes to unseen data.
 - Training and validation loss decreased together (train 0.235 → 0.188, validation 0.216 → 0.190), with no sign of overfitting.
 - Recall is very high: the model misses almost no pneumonia cases. Most remaining errors are normal images predicted as pneumonia.
 
-<!-- Add your plots here after training, e.g.:
-![Loss curve](images/loss_curve_fold_1.png)
-![Confusion matrix](images/confusion_matrix_fold_1.png)
-![Grad-CAM](images/gradcam_grid_random.png)
--->
+### Training (fold 4)
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img alt="Training and validation loss, fold 4" src="https://github.com/user-attachments/assets/02b6c2bd-b451-4334-a2be-18ef8f7101b5" />
+      <br><em>Training and validation loss</em>
+    </td>
+    <td align="center" width="50%">
+      <img alt="Confusion matrix on validation, fold 4" src="https://github.com/user-attachments/assets/763eed81-9bcd-45ba-a38d-8b5cb54357ce" />
+      <br><em>Confusion matrix on the validation fold</em>
+    </td>
+  </tr>
+</table>
+
+### Grad-CAM
+
+Heatmaps of the image regions the model relied on (see [Model explainability](#model-explainability-grad-cam)). Click to expand.
+
+<details>
+  <summary><b>Grad-CAM: random test images and misclassified images</b></summary>
+  <br>
+  <table>
+    <tr>
+      <td align="center" width="50%"><b>Random test images</b></td>
+      <td align="center" width="50%"><b>Misclassified images</b></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top">
+        <img alt="Grad-CAM on random test images" src="https://github.com/user-attachments/assets/2fd3eaac-9aa9-4330-bba4-e3a572bda49f" />
+      </td>
+      <td align="center" valign="top">
+        <img alt="Grad-CAM on misclassified test images" src="https://github.com/user-attachments/assets/5805d325-cd53-485c-8c33-b38d0b743bf6" />
+      </td>
+    </tr>
+  </table>
+</details>
+
 
 ## What changed from the first version
 
