@@ -1,97 +1,146 @@
-# Chest_X_ray_Classification
-This project implements a binary classification model to detect Pneumonia from chest X-ray images. The model uses a pretrained ResNet34 backbone and is trained and evaluated using stratified five-fold cross-validation. The dataset consists of approximately 15,000 chest X-ray images labeled as either Normal or Pneumonia.
+# Chest X-ray Pneumonia Classification
 
-### Data
-The dataset used in this project was sourced from [Kaggle: Chest X-Ray Dataset by Muhammad Rehan](https://www.kaggle.com/datasets/muhammadrehan00/chest-xray-dataset)
-. The dataset originally contained three classes: Normal, Pneumonia, and Tuberculosis. For this project, only Normal and Pneumonia images were retained.
+Binary classification of chest X-ray images as **Normal** or **Pneumonia** using transfer learning with a pretrained ResNet backbone (ResNet18 / ResNet34 / ResNet50), trained with stratified 5-fold cross-validation and mixed-precision GPU training.
 
-Images were resized to match the input requirements of ResNet, normalized according to pretrained parameters, and augmented using horizontal flips and minor color adjustments. Oversampling and class weighting were applied to address class imbalance.
+## Results
 
-### Model
-You can choose the model in args.py There are pretrained models: resnet18, resnet34, resnet50.
+Best model: **ResNet34**, fold 1, 5 epochs, evaluated on the held-out test set (never used during training or model selection).
 
-## Training and Evaluation
+| Metric | Validation (fold 1, best epoch) | Test |
+|---|---|---|
+| Balanced accuracy | 0.915 | **0.902** |
+| F1-score (macro) | 0.896 | **0.879** |
+| Recall (pneumonia) | 0.997 | **0.997** |
+| ROC-AUC | 0.975 | **0.975** |
 
-The model was trained with the following strategies:
-- Stratified five-fold cross-validation was used to ensure balanced representation of classes in each fold.
+- Test performance is close to validation performance, so the model generalizes to unseen data.
+- Training and validation loss decreased together (train 0.235 → 0.188, validation 0.216 → 0.190), with no sign of overfitting.
+- Recall is very high: the model misses almost no pneumonia cases. Most remaining errors are normal images predicted as pneumonia.
 
-- The training process used mixed precision training (AMP) to optimize performance on GPUs. The key training loop is structured as follows:
+<!-- Add your plots here after training, e.g.:
+![Loss curve](images/loss_curve_fold_1.png)
+![Confusion matrix](images/confusion_matrix_fold_1.png)
+![Grad-CAM](images/gradcam_grid_random.png)
+-->
 
-```python
-with amp_context():
-    outputs = model(images)
-    loss = criterion(outputs, labels)
+## What changed from the first version
 
-if use_amp:
-    scaler.scale(loss).backward()
-    scaler.step(optimizer)
-    scaler.update()
-else:
-    loss.backward()
-    optimizer.step()
+The first version of this project reached 0.91 balanced accuracy on validation but only **0.54 on the test set**: it predicted *pneumonia* for almost every image. Debugging it led to these fixes:
 
-del images, labels, outputs, loss
-```
-- Data loaders were optimized for CUDA with pin memory and prefetching:
+1. **Class imbalance was corrected twice.** A `WeightedRandomSampler` already balanced the classes 50/50, and `BCEWithLogitsLoss(pos_weight=3.0)` additionally made every pneumonia error count three times more. Since pneumonia is already the larger class, the model learned to predict it almost always. **Fix:** imbalance is now handled only by the sampler.
+2. **ROC-AUC was computed on 0/1 predictions** instead of probabilities, which made it identical to balanced accuracy. **Fix:** ROC-AUC now uses predicted probabilities.
+3. **Validation and test images were augmented** (random flips and brightness changes) because the dataset defaulted to training mode. **Fix:** validation and test use `train=False`.
+4. **The learning-rate scheduler could never lower the learning rate**, because `min_lr` was equal to the learning rate. **Fix:** `-min_lr 1e-6`.
+5. **Validation now runs under `torch.no_grad()`**, and unreadable image files are detected and skipped when the CSVs are built.
 
-```python
-pin_memory = (device.type == "cuda")
-prefetch_factor = 1
-```
-- Memory management was carefully handled to prevent GPU memory leaks:
+Result: test balanced accuracy improved from **0.54 to 0.90**.
 
-```python
-del train_loader, val_loader, train_dataset, val_dataset, model
-gc.collect()
-torch.cuda.empty_cache()
-```
+## Data
 
-Evaluation metrics included balanced accuracy, F1 score (macro), recall, and ROC-AUC. These metrics provide a comprehensive assessment of model performance, accounting for class imbalance and clinical relevance.
+Dataset: [Chest X-Ray Dataset by Muhammad Rehan (Kaggle)](https://www.kaggle.com/datasets/muhammadrehan00/chest-xray-dataset).
+
+The original dataset has three classes: Normal, Pneumonia and Tuberculosis. Only **Normal** and **Pneumonia** are used. The original `train` and `val` folders are combined and split into 5 stratified folds, and the original `test` folder is kept aside as an independent test set.
+
+Preprocessing and augmentation:
+- images are read in grayscale and converted to 3 channels for the pretrained ResNet
+- resized to 224×224 and normalized with ImageNet mean and standard deviation
+- training only: random horizontal flip and small brightness/contrast changes
+- class imbalance: oversampling with `WeightedRandomSampler`
+
+## Model and training
+
+- **Backbone:** pretrained ResNet18, ResNet34 or ResNet50 (torchvision), with the final layer replaced by a single output for binary classification
+- **Loss:** `BCEWithLogitsLoss`
+- **Optimizer:** Adam (learning rate 1e-3, weight decay 1e-4)
+- **Scheduler:** ReduceLROnPlateau on validation ROC-AUC (also supports cosine and step)
+- **Mixed precision (AMP)** on CUDA GPUs for faster training and lower memory use
+- **Checkpointing:** the best epoch per fold is saved based on validation balanced accuracy
+- **Metrics:** balanced accuracy, macro F1-score, recall and ROC-AUC. These are chosen over plain accuracy because the classes are imbalanced, and in a medical setting a missed pneumonia case is the costliest error.
+
+## Model explainability (Grad-CAM)
+
+`gradcam.py` shows which image regions the model uses for its prediction. Heat on the lungs means the model relies on medically meaningful areas. Heat on corners, text markers or borders would point to shortcut learning (learning how the images were taken rather than the disease).
+
+## Project structure
+
+| File | Purpose |
+|---|---|
+| `prepare_dataset.py` | Builds `metadata.csv`, `test.csv` and the 5 stratified fold CSVs; skips unreadable images |
+| `dataset.py` | PyTorch `Dataset` that loads the X-ray images |
+| `transforms.py` | Training and validation transforms |
+| `model.py` | `TransferModel`: ResNet backbone with a binary output layer |
+| `trainer.py` | Training and validation loop with AMP, checkpointing and plots |
+| `main.py` | Runs 5-fold cross-validation |
+| `evaluate.py` | Evaluates a saved model on the test set |
+| `gradcam.py` | Grad-CAM heatmaps for model explainability |
+| `utils.py` | Metrics, scheduler, checkpointing, plotting |
+| `args.py` | Command-line arguments |
 
 ## How to run
-To run the project and utilize GPU acceleration with CUDA, follow the steps below:
-1. Clone repository
+
+### 1. Clone and install
 
 ```bash
-
 git clone https://github.com/tsvetkovatatiana/Chest_X_ray_Classification.git
-cd Chest_X-ray_Classification
+cd Chest_X_ray_Classification
+
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 ```
-2. Install Dependencies
-Ensure you have Python 3.8+ installed. It is recommended to use a virtual environment:
+
+Install PyTorch with CUDA support first (choose the CUDA version that matches your driver at [pytorch.org](https://pytorch.org/get-started/locally/)), then the rest:
 
 ```bash
-
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install torch==2.9.1 torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
 ```
-Install required Python packages:
+
+Check that the GPU is visible:
+
 ```bash
-
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install scikit-learn pandas numpy
-```
-Notes on CUDA:
-
-The above command installs PyTorch with CUDA 11.8 support. Adjust the CUDA version according to your GPU and driver compatibility.
-
-Ensure that your system has an NVIDIA GPU with CUDA installed. You can verify CUDA availability in Python:
-```python
-
-import torch
-print(torch.cuda.is_available())  # Should return True
-print(torch.cuda.get_device_name(0))
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
-3. Prepare the Dataset
-Download the Chest X-Ray dataset from Kaggle: [Chest X-Ray Dataset by Muhammad Rehan](https://www.kaggle.com/datasets/muhammadrehan00/chest-xray-dataset?resource=download)
-- Retain only the Normal and Pneumonia classes.
-- Combine the train and validation folders.
-- Create CSV files containing image paths and labels. For example, metadata.csv for training/validation data and test.csv for evaluation.
+### 2. Prepare the dataset
 
-4. Configure Training Parameters
-Adjust hyperparameters in the training script or through command-line arguments.
+Download and unzip the dataset from Kaggle, then point `--data_root` to the folder that contains `train/`, `val/` and `test/`:
+
+```bash
+python prepare_dataset.py --data_root archive --out_dir data/CSVs
+```
+
+Rename `data/CSVs/test.csv` to `data/CSVs/test_data.csv` (the name `evaluate.py` expects).
+
+### 3. Train (5-fold cross-validation)
+
+```bash
+python main.py -backbone resnet34 -epochs 5 -batch_size 32 -lr 1e-3 -min_lr 1e-6 -scheduler plateau -csv_dir data/CSVs -output_dir session
+```
+
+Best checkpoints, loss curves and confusion matrices are saved in `session/`. If you run out of GPU memory, use `-batch_size 16`.
+
+### 4. Evaluate on the test set
+
+```bash
+python evaluate.py -backbone resnet34 -csv_dir data/CSVs -best_model_pth session/fold_1_best.pth
+```
+
+Results are saved in `evaluation_results/test_metrics.csv`.
+
+### 5. Grad-CAM
+
+```bash
+python gradcam.py --model_path session/fold_1_best.pth --csv data/CSVs/test_data.csv
+python gradcam.py --model_path session/fold_1_best.pth --csv data/CSVs/test_data.csv --mode errors
+```
+
+Heatmaps are saved in `gradcam_results/`.
+
+## Possible improvements
+
+- Tune the decision threshold on validation data instead of using 0.5, to reduce false positives while keeping recall high
+- Average predictions from all 5 fold models (ensemble)
 
 <br>
-P.S. 
+P.S.
 This project was initially developed as part of my university coursework. I would like to sincerely thank my teacher for providing the idea for this project and for offering careful guidance and support whenever it was needed.
