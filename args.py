@@ -6,7 +6,7 @@ def get_args():
     parser.add_argument("-backbone", type=str, default="resnet34",
                         choices=["resnet18", "resnet34", "resnet50"])
 
-    parser.add_argument("-csv_dir", type=str, default="CSVs")
+    parser.add_argument("-csv_dir", type=str, default="data/CSVs")
 
     parser.add_argument("-best_model_pth", type=str, default="session/fold_1_best.pth")
 
@@ -15,7 +15,7 @@ def get_args():
 
     parser.add_argument("-output_dir", type=str, default="session")
 
-    parser.add_argument("-lr", type=float, default=1e-3)
+    parser.add_argument("-lr", type=float, default=1e-4)
 
     parser.add_argument("-epochs", type=int, default=5)
 
