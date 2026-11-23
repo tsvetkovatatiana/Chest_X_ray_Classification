@@ -39,14 +39,18 @@ def scheduler_setup(optimizer):
     return scheduler
 
 
-def calculate_metrics(y_true, y_pred, y_probs):
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
+def calculate_metrics(y_true, y_pred, y_prob=None):
+    y_true = np.asarray(y_true).ravel()
+    y_pred = np.asarray(y_pred).ravel()
 
     metrics = {"balanced_acc": balanced_accuracy_score(y_true, y_pred),
-               'f1_score': f1_score(y_true, y_pred, average='macro'),
-               'recall_score': recall_score(y_true, y_pred),
-               'roc_auc': roc_auc_score(y_probs)}
+               "f1_score": f1_score(y_true, y_pred, average="macro"),
+               "recall_score": recall_score(y_true, y_pred)}
+
+    if y_prob is not None and len(np.unique(y_true)) == 2:
+        metrics["roc_auc"] = roc_auc_score(y_true, np.asarray(y_prob).ravel())
+    else:
+        metrics["roc_auc"] = float("nan")  # undefined without probabilities or with one class
 
     return metrics
 
