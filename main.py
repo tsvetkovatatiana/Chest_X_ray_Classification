@@ -25,7 +25,7 @@ def main():
         val_set = pd.read_csv(os.path.join(args.csv_dir, 'fold_{}_val.csv'.format(str(fold))))
 
         train_dataset = ChestXrayDataset(train_set, cache=False)
-        val_dataset = ChestXrayDataset(val_set, cache=False)
+        val_dataset = ChestXrayDataset(val_set, train=False, cache=False)
 
         # oversampling
         label_map = {
