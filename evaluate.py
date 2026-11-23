@@ -43,7 +43,7 @@ def main():
 
     test_csv = os.path.join(args.csv_dir, f"test_data.csv")
     test_data = pd.read_csv(test_csv)
-    test_dataset = ChestXrayDataset(test_data, cache=False)
+    test_dataset = ChestXrayDataset(test_data, train=False, cache=False)
     val_loader = DataLoader(
         test_dataset,
         batch_size=args.batch_size,
